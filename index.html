@@ -3,107 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ethereal Chat</title>
+    <title>Ethereal Chat + Game</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         /* --- THEME --- */
-        :root { --bg: #050505; --surface: #121212; --primary: #00f2ea; --text: #fff; }
+        :root { --bg: #050505; --surface: #121212; --primary: #00f2ea; --secondary: #ff0055; --text: #fff; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-        /* --- LOGIN OVERLAY --- */
-        #login-screen {
-            position: fixed; inset: 0; background: var(--bg); z-index: 100;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
+        /* --- LOGIN & UI --- */
+        #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .login-box { width: 80%; max-width: 300px; text-align: center; }
-        .login-input { width: 100%; padding: 15px; background: #222; border: 1px solid #333; color: white; border-radius: 10px; margin-bottom: 15px; font-size: 1rem; text-align: center; }
-        .btn-glow { width: 100%; padding: 15px; background: var(--primary); border: none; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px rgba(0,242,234,0.2); }
+        .login-input { width: 100%; padding: 15px; background: #222; border: 1px solid #333; color: white; border-radius: 12px; margin-bottom: 20px; text-align: center; }
+        .btn-glow { width: 100%; padding: 15px; background: var(--primary); border: none; border-radius: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,242,234,0.3); }
+        
+        header { padding: 15px; background: rgba(18,18,18,0.95); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        .brand { font-weight: 800; color: var(--primary); letter-spacing: 2px; }
+        .id-display { font-size: 0.8rem; padding: 6px 12px; background: #222; border-radius: 20px; border: 1px solid #333; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: red; transition: 0.3s; }
+        .dot.online { background: #0f0; box-shadow: 0 0 6px #0f0; }
 
-        /* --- MAIN UI --- */
-        header { padding: 15px; background: rgba(18,18,18,0.9); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .brand { font-weight: 600; color: var(--primary); letter-spacing: 1px; }
-        .status-badge { font-size: 0.8rem; padding: 5px 10px; background: #222; border-radius: 20px; display: flex; align-items: center; gap: 6px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; transition: 0.3s; }
-        .dot.online { background: #0f0; box-shadow: 0 0 5px #0f0; }
-        .dot.offline { background: red; }
-
-        /* Connection Bar */
-        .conn-bar { padding: 10px; background: var(--surface); display: flex; gap: 10px; border-bottom: 1px solid #333; }
+        .conn-bar { padding: 12px; background: var(--surface); display: flex; gap: 8px; border-bottom: 1px solid #333; }
         .conn-input { flex: 1; padding: 10px; background: #000; border: 1px solid #333; color: white; border-radius: 8px; }
-        .btn-join { background: #333; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 600; }
+        .btn-join { background: #333; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 600; cursor: pointer; }
 
-        /* Chat Area */
-        #chat-feed { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        #chat-feed { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+        
         .msg { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 0.95rem; word-wrap: break-word; }
         .mine { align-self: flex-end; background: var(--primary); color: #000; border-bottom-right-radius: 2px; }
         .theirs { align-self: flex-start; background: #222; color: #fff; border-bottom-left-radius: 2px; }
         .sys-msg { align-self: center; font-size: 0.75rem; color: #666; background: #111; padding: 4px 10px; border-radius: 10px; }
 
-        /* Typing Animation */
-        .typing-indicator { align-self: flex-start; background: #222; padding: 10px 15px; border-radius: 16px; border-bottom-left-radius: 2px; display: none; align-items: center; gap: 4px; }
-        .typing-dot { width: 6px; height: 6px; background: #888; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-
-        /* Connection Loader */
-        .loader-overlay { position: absolute; top: 60px; left: 0; right: 0; background: rgba(0,0,0,0.8); padding: 10px; text-align: center; display: none; color: var(--primary); font-size: 0.9rem; }
-
-        /* Input Area */
         footer { padding: 10px; background: var(--surface); display: flex; gap: 10px; border-top: 1px solid #333; }
-        #msg-input { flex: 1; padding: 12px; background: #000; border: 1px solid #333; color: white; border-radius: 24px; }
-        #send-btn { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); border: none; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+        #msg-input { flex: 1; padding: 12px 15px; background: #000; border: 1px solid #333; color: white; border-radius: 25px; }
+        #send-btn { width: 48px; height: 48px; border-radius: 50%; background: var(--primary); border: none; font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        /* --- GAME STYLES --- */
+        .game-container {
+            align-self: center; width: 220px; background: #1a1a1a; padding: 15px; 
+            border-radius: 15px; border: 1px solid #333; margin: 10px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .game-header { text-align: center; margin-bottom: 10px; font-size: 0.8rem; color: #888; letter-spacing: 1px; }
+        .game-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .cell {
+            height: 60px; background: #252525; border-radius: 8px; border: none; cursor: pointer;
+            font-size: 2rem; font-weight: 800; color: white; display: flex; align-items: center; justify-content: center;
+        }
+        .cell.x { color: var(--primary); text-shadow: 0 0 10px rgba(0, 242, 234, 0.5); }
+        .cell.o { color: var(--secondary); text-shadow: 0 0 10px rgba(255, 0, 85, 0.5); }
+        .cell:active { background: #333; }
+        
+        .game-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200;
+            display: none; align-items: center; justify-content: center;
+        }
+        .choice-box { background: #222; padding: 20px; border-radius: 15px; text-align: center; border: 1px solid var(--primary); }
+        .choice-btn {
+            font-size: 1.5rem; width: 60px; height: 60px; margin: 10px; border-radius: 10px; border: none; cursor: pointer;
+            background: #333; color: white; font-weight: bold;
+        }
+        .choice-btn:hover { background: var(--primary); color: black; }
+
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
 
+    <div id="choice-overlay" class="game-overlay">
+        <div class="choice-box">
+            <h2 style="margin-top:0; color:white;">Choose Side</h2>
+            <button class="choice-btn" style="color:var(--primary)" onclick="startGameAs('X')">X</button>
+            <button class="choice-btn" style="color:var(--secondary)" onclick="startGameAs('O')">O</button>
+        </div>
+    </div>
+
     <div id="login-screen">
         <div class="login-box">
-            <h1 style="color:white; font-weight:300; letter-spacing:3px; margin-bottom:30px;">ETHEREAL</h1>
-            <input type="text" id="username-field" class="login-input" placeholder="Enter your name">
-            <button class="btn-glow" onclick="startGame()">ENTER</button>
+            <h1 style="color:white; font-weight:300; letter-spacing:4px;">ETHEREAL</h1>
+            <input type="text" id="username-field" class="login-input" placeholder="Enter Name">
+            <button class="btn-glow" onclick="enterApp()">START</button>
         </div>
     </div>
 
     <header>
         <div class="brand">ETHEREAL</div>
-        <div class="status-badge" onclick="copyId()">
+        <div class="id-display" onclick="copyId()">
             <div id="status-dot" class="dot"></div>
             <span id="header-status">Offline</span>
         </div>
     </header>
 
     <div class="conn-bar">
-        <input id="remote-id" class="conn-input" placeholder="Paste Friend's ID">
+        <input id="remote-id" class="conn-input" placeholder="Friend's ID">
         <button class="btn-join" onclick="connectManual()">JOIN</button>
     </div>
 
-    <div id="loader" class="loader-overlay">Connecting to secure frequency...</div>
-
     <div id="chat-feed">
         <div class="sys-msg">Waiting for connection...</div>
-        
-        <div id="typing-bubble" class="typing-indicator">
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-        </div>
     </div>
 
     <footer>
-        <input id="msg-input" type="text" placeholder="Type a message..." disabled oninput="handleTyping()">
-        <button id="send-btn" onclick="sendMessage()" disabled>→</button>
+        <input id="msg-input" type="text" placeholder="Type message..." disabled>
+        <button id="send-btn" onclick="handleSend()" disabled>→</button>
     </footer>
 
     <script>
-        // --- CONFIG ---
-        let me = { name: "", id: null };
+        // --- STATE ---
+        let me = { name: "User", id: null };
         let peer = null;
         let conn = null;
-        let heartbeatInterval = null;
-        let typingTimeout = null;
+        let activeGame = null; // { id, board, turn, mySymbol }
 
         // --- DOM ---
         const ui = {
@@ -112,183 +123,202 @@
             statusDot: document.getElementById('status-dot'),
             statusText: document.getElementById('header-status'),
             chat: document.getElementById('chat-feed'),
-            typing: document.getElementById('typing-bubble'),
             input: document.getElementById('msg-input'),
             send: document.getElementById('send-btn'),
-            loader: document.getElementById('loader'),
-            remoteInput: document.getElementById('remote-id')
+            choiceOverlay: document.getElementById('choice-overlay')
         };
 
-        // 1. LOGIN
-        function startGame() {
+        // 1. APP START
+        function enterApp() {
             const name = ui.userField.value.trim();
-            if(!name) return alert("Name is required");
+            if(!name) return;
             me.name = name;
             ui.login.style.display = 'none';
             initPeer();
         }
 
-        // 2. PEER INIT
         function initPeer() {
             peer = new Peer();
-            
             peer.on('open', (id) => {
                 me.id = id;
-                setStatus('online', 'You are Online');
-                addSystemMsg(`ID generated. Share it!`);
+                ui.statusDot.classList.add('online');
+                ui.statusText.innerText = "Copy ID";
+                addSystem("ID Generated. Share it!");
             });
-
-            peer.on('connection', (c) => {
-                handleConnection(c);
-            });
+            peer.on('connection', (c) => handleConn(c));
         }
 
-        // 3. CONNECT LOGIC
         function connectManual() {
-            const id = ui.remoteInput.value.trim();
+            const id = document.getElementById('remote-id').value.trim();
             if(!id) return;
-            
-            ui.loader.style.display = 'block'; // Show Animation
-            const c = peer.connect(id);
-            handleConnection(c);
+            handleConn(peer.connect(id));
         }
 
-        function handleConnection(connection) {
+        function handleConn(connection) {
             if(conn) conn.close();
             conn = connection;
-
             conn.on('open', () => {
-                ui.loader.style.display = 'none'; // Hide Animation
                 ui.input.disabled = false;
                 ui.send.disabled = false;
-                ui.remoteInput.value = "";
-                
-                // Send Identity
-                conn.send({ type: 'join', name: me.name });
-                startHeartbeat(); // Start checking if alive
+                addSystem("Connected!");
+                conn.send({ type: 'handshake', name: me.name });
             });
-
-            conn.on('data', (data) => {
-                handleData(data);
-            });
-
+            conn.on('data', (data) => handleData(data));
             conn.on('close', () => {
-                stopHeartbeat();
-                setStatus('offline', 'Disconnected');
+                addSystem("Disconnected.");
                 ui.input.disabled = true;
-                ui.send.disabled = true;
-                addSystemMsg("Peer disconnected.");
                 conn = null;
             });
-
-            // If user closes tab, send a final 'bye' signal
-            window.onbeforeunload = () => {
-                if(conn) conn.send({ type: 'leave' });
-            }
         }
 
-        // 4. DATA HANDLER
-        function handleData(data) {
-            switch(data.type) {
-                case 'join':
-                    addSystemMsg(`${data.name} joined the chat.`);
-                    setStatus('online', `Connected: ${data.name}`);
-                    break;
-                case 'chat':
-                    ui.typing.style.display = 'none'; // Hide typing if msg comes
-                    addMessage(data.text, 'theirs');
-                    break;
-                case 'typing':
-                    if(data.status) {
-                        ui.typing.style.display = 'flex';
-                        ui.chat.appendChild(ui.typing); // Move to bottom
-                        ui.chat.scrollTop = ui.chat.scrollHeight;
-                    } else {
-                        ui.typing.style.display = 'none';
-                    }
-                    break;
-                case 'leave':
-                    // Immediate offline detection
-                    setStatus('offline', 'Peer Left');
-                    addSystemMsg("User left the chat.");
-                    conn.close();
-                    break;
-                case 'ping':
-                    // Received heartbeat, just ignore, it keeps connection alive
-                    break;
-            }
-        }
-
-        // 5. MESSAGING & TYPING
-        function sendMessage() {
+        // 2. MESSAGING & TRIGGER
+        function handleSend() {
             const text = ui.input.value.trim();
-            if(!text || !conn) return;
-            
+            if(!text) return;
+
+            // SECRET TRIGGER
+            if(text.toLowerCase() === 'ethereal') {
+                ui.choiceOverlay.style.display = 'flex'; // Open Choice UI
+                ui.input.value = "";
+                return;
+            }
+
+            // Normal Message
             conn.send({ type: 'chat', text: text });
-            addMessage(text, 'mine');
+            addMsg(text, 'mine');
             ui.input.value = "";
-            
-            // Stop typing indicator immediately
-            conn.send({ type: 'typing', status: false });
         }
 
-        function handleTyping() {
-            if(!conn) return;
+        function handleData(data) {
+            if(data.type === 'chat') addMsg(data.text, 'theirs');
+            if(data.type === 'handshake') addSystem(`Connected to ${data.name}`);
             
-            // Send "I am typing"
-            conn.send({ type: 'typing', status: true });
-
-            // Clear old timeout
-            if(typingTimeout) clearTimeout(typingTimeout);
-
-            // Stop typing after 1 second of no keys
-            typingTimeout = setTimeout(() => {
-                conn.send({ type: 'typing', status: false });
-            }, 1000);
+            // GAME LOGIC HANDLERS
+            if(data.type === 'game-start') initGameUI(data.gameId, data.starterSymbol === 'X' ? 'O' : 'X', false);
+            if(data.type === 'game-move') handleRemoteMove(data.index, data.symbol);
         }
 
-        // 6. HEARTBEAT (Online Status)
-        function startHeartbeat() {
-            // Send a silent 'ping' every 2 seconds to prove we are online
-            heartbeatInterval = setInterval(() => {
-                if(conn && conn.open) {
-                    conn.send({ type: 'ping' });
+        // 3. GAME LOGIC
+        function startGameAs(symbol) {
+            ui.choiceOverlay.style.display = 'none';
+            const gameId = Date.now();
+            
+            // Initialize my game state
+            initGameUI(gameId, symbol, true);
+            
+            // Tell friend to start game
+            conn.send({ type: 'game-start', gameId: gameId, starterSymbol: symbol });
+        }
+
+        function initGameUI(gameId, mySymbol, isMyTurn) {
+            // Create Game Object
+            activeGame = {
+                id: gameId,
+                board: [null,null,null,null,null,null,null,null,null],
+                mySymbol: mySymbol,
+                isMyTurn: isMyTurn, // If I picked, I go first (usually X, but logic allows custom)
+                element: null
+            };
+            
+            // Note: In TicTacToe X usually goes first. 
+            // If I picked X, isMyTurn = true. If I picked O, isMyTurn = false.
+            if(mySymbol === 'O') activeGame.isMyTurn = false;
+            else activeGame.isMyTurn = true;
+
+            renderGameBoard();
+        }
+
+        function renderGameBoard() {
+            const div = document.createElement('div');
+            div.className = 'game-container';
+            div.innerHTML = `
+                <div class="game-header">ETHEREAL MATCH</div>
+                <div class="game-grid" id="grid-${activeGame.id}">
+                    ${[0,1,2,3,4,5,6,7,8].map(i => `<button class="cell" onclick="makeMove(${i})"></button>`).join('')}
+                </div>
+                <div class="game-header" id="status-${activeGame.id}" style="margin-top:10px; color:${activeGame.isMyTurn ? 'var(--primary)' : '#555'}">
+                    ${activeGame.isMyTurn ? "YOUR TURN" : "OPPONENT'S TURN"}
+                </div>
+            `;
+            
+            // Add to chat
+            ui.chat.appendChild(div);
+            ui.chat.scrollTop = ui.chat.scrollHeight;
+            activeGame.element = div;
+        }
+
+        function makeMove(index) {
+            if(!activeGame || !activeGame.isMyTurn || activeGame.board[index]) return;
+
+            // Update Local
+            updateCell(index, activeGame.mySymbol);
+            activeGame.isMyTurn = false;
+            updateStatus("OPPONENT'S TURN");
+
+            // Send to Peer
+            conn.send({ type: 'game-move', index: index, symbol: activeGame.mySymbol });
+            
+            checkWin();
+        }
+
+        function handleRemoteMove(index, symbol) {
+            if(!activeGame) return; // Should sync, but simple check
+            updateCell(index, symbol);
+            activeGame.isMyTurn = true;
+            updateStatus("YOUR TURN");
+            checkWin();
+        }
+
+        function updateCell(index, symbol) {
+            activeGame.board[index] = symbol;
+            const btn = document.getElementById(`grid-${activeGame.id}`).children[index];
+            btn.innerText = symbol;
+            btn.classList.add(symbol.toLowerCase());
+        }
+
+        function updateStatus(text) {
+            const el = document.getElementById(`status-${activeGame.id}`);
+            el.innerText = text;
+            el.style.color = text.includes("YOUR") ? "var(--primary)" : "#555";
+        }
+
+        function checkWin() {
+            const b = activeGame.board;
+            const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            
+            for(let w of wins) {
+                if(b[w[0]] && b[w[0]] === b[w[1]] && b[w[0]] === b[w[2]]) {
+                    endGame(b[w[0]] === activeGame.mySymbol ? "VICTORY" : "DEFEAT");
+                    return;
                 }
-            }, 2000);
+            }
+            if(!b.includes(null)) endGame("DRAW");
         }
 
-        function stopHeartbeat() {
-            if(heartbeatInterval) clearInterval(heartbeatInterval);
+        function endGame(result) {
+            updateStatus(result);
+            activeGame = null; // Disable logic
         }
 
-        // 7. UI HELPERS
-        function setStatus(state, text) {
-            ui.statusDot.className = `dot ${state}`;
-            ui.statusText.innerText = text;
-        }
-
-        function addMessage(text, type) {
+        // --- UI HELPERS ---
+        function addMsg(text, type) {
             const div = document.createElement('div');
             div.className = `msg ${type}`;
             div.innerText = text;
-            // Insert before typing bubble
-            ui.chat.insertBefore(div, ui.typing);
-            ui.chat.scrollTop = ui.chat.scrollHeight;
-        }
-
-        function addSystemMsg(text) {
-            const div = document.createElement('div');
-            div.className = 'sys-msg';
-            div.innerText = text;
-            ui.chat.insertBefore(div, ui.typing);
+            ui.chat.appendChild(div);
             ui.chat.scrollTop = ui.chat.scrollHeight;
         }
         
+        function addSystem(text) {
+            const div = document.createElement('div');
+            div.className = 'sys-msg';
+            div.innerText = text;
+            ui.chat.appendChild(div);
+            ui.chat.scrollTop = ui.chat.scrollHeight;
+        }
+
         function copyId() {
-            if(me.id) {
-                navigator.clipboard.writeText(me.id);
-                alert("ID Copied: " + me.id);
-            }
+            if(me.id) navigator.clipboard.writeText(me.id).then(() => alert("ID Copied"));
         }
     </script>
 </body>

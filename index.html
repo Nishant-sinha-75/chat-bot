@@ -3,132 +3,205 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ethereal Chat + Game</title>
+    <title>Ethereal: Chat & Arcade</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        /* --- THEME --- */
-        :root { --bg: #050505; --surface: #121212; --primary: #00f2ea; --secondary: #ff0055; --text: #fff; }
+        /* --- ETHEREAL THEME --- */
+        :root { 
+            --bg: #050505; 
+            --surface: #121212; 
+            --surface-light: #1e1e1e;
+            --primary: #00f2ea; 
+            --secondary: #ff0055; 
+            --text: #fff; 
+            --text-dim: #888;
+        }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-        /* --- LOGIN & UI --- */
-        #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .login-box { width: 80%; max-width: 300px; text-align: center; }
-        .login-input { width: 100%; padding: 15px; background: #222; border: 1px solid #333; color: white; border-radius: 12px; margin-bottom: 20px; text-align: center; }
-        .btn-glow { width: 100%; padding: 15px; background: var(--primary); border: none; border-radius: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,242,234,0.3); }
+        /* --- UTILS --- */
+        .hidden { display: none !important; }
+        .btn-glow { width: 100%; padding: 15px; background: var(--primary); border: none; border-radius: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,242,234,0.3); color: #000; }
         
+        /* --- LOGIN --- */
+        #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .login-box { width: 80%; max-width: 300px; text-align: center; }
+        .login-input { width: 100%; padding: 15px; background: #222; border: 1px solid #333; color: white; border-radius: 12px; margin-bottom: 20px; text-align: center; font-size: 1.1rem; }
+
+        /* --- APP HEADER --- */
         header { padding: 15px; background: rgba(18,18,18,0.95); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         .brand { font-weight: 800; color: var(--primary); letter-spacing: 2px; }
-        .id-display { font-size: 0.8rem; padding: 6px 12px; background: #222; border-radius: 20px; border: 1px solid #333; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: red; transition: 0.3s; }
-        .dot.online { background: #0f0; box-shadow: 0 0 6px #0f0; }
+        .id-badge { font-size: 0.75rem; padding: 6px 12px; background: #222; border-radius: 20px; display: flex; align-items: center; gap: 8px; border: 1px solid #333; cursor: pointer; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: orange; box-shadow: 0 0 5px orange; }
+        .dot.online { background: #0f0; box-shadow: 0 0 5px #0f0; }
 
-        .conn-bar { padding: 12px; background: var(--surface); display: flex; gap: 8px; border-bottom: 1px solid #333; }
+        /* --- CONTENT AREA (Tabs) --- */
+        #main-content { flex: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        
+        /* VIEW: CHAT */
+        #view-chat { flex: 1; display: flex; flex-direction: column; height: 100%; }
+        .conn-bar { padding: 10px; background: var(--surface); display: flex; gap: 8px; border-bottom: 1px solid #333; }
         .conn-input { flex: 1; padding: 10px; background: #000; border: 1px solid #333; color: white; border-radius: 8px; }
         .btn-join { background: #333; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-
-        #chat-feed { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
         
+        #chat-feed { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         .msg { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 0.95rem; word-wrap: break-word; }
         .mine { align-self: flex-end; background: var(--primary); color: #000; border-bottom-right-radius: 2px; }
         .theirs { align-self: flex-start; background: #222; color: #fff; border-bottom-left-radius: 2px; }
         .sys-msg { align-self: center; font-size: 0.75rem; color: #666; background: #111; padding: 4px 10px; border-radius: 10px; }
-
-        footer { padding: 10px; background: var(--surface); display: flex; gap: 10px; border-top: 1px solid #333; }
-        #msg-input { flex: 1; padding: 12px 15px; background: #000; border: 1px solid #333; color: white; border-radius: 25px; }
-        #send-btn { width: 48px; height: 48px; border-radius: 50%; background: var(--primary); border: none; font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-
-        /* --- GAME STYLES --- */
-        .game-container {
-            align-self: center; width: 220px; background: #1a1a1a; padding: 15px; 
-            border-radius: 15px; border: 1px solid #333; margin: 10px 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .game-header { text-align: center; margin-bottom: 10px; font-size: 0.8rem; color: #888; letter-spacing: 1px; }
-        .game-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-        .cell {
-            height: 60px; background: #252525; border-radius: 8px; border: none; cursor: pointer;
-            font-size: 2rem; font-weight: 800; color: white; display: flex; align-items: center; justify-content: center;
-        }
-        .cell.x { color: var(--primary); text-shadow: 0 0 10px rgba(0, 242, 234, 0.5); }
-        .cell.o { color: var(--secondary); text-shadow: 0 0 10px rgba(255, 0, 85, 0.5); }
-        .cell:active { background: #333; }
         
-        .game-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200;
-            display: none; align-items: center; justify-content: center;
-        }
-        .choice-box { background: #222; padding: 20px; border-radius: 15px; text-align: center; border: 1px solid var(--primary); }
-        .choice-btn {
-            font-size: 1.5rem; width: 60px; height: 60px; margin: 10px; border-radius: 10px; border: none; cursor: pointer;
-            background: #333; color: white; font-weight: bold;
-        }
-        .choice-btn:hover { background: var(--primary); color: black; }
+        .chat-input-area { padding: 10px; background: var(--surface); display: flex; gap: 10px; border-top: 1px solid #333; }
+        #msg-input { flex: 1; padding: 12px 15px; background: #000; border: 1px solid #333; color: white; border-radius: 25px; }
+        #send-btn { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); border: none; font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        /* VIEW: GAMES (ARCADE) */
+        #view-games { flex: 1; display: none; flex-direction: column; background: var(--bg); padding: 20px; overflow-y: auto; }
+        
+        /* Game List (Column) */
+        .game-list { display: flex; flex-direction: column; gap: 15px; }
+        .game-card { 
+            background: var(--surface-light); border: 1px solid #333; border-radius: 15px; padding: 20px; 
+            display: flex; justify-content: space-between; align-items: center; transition: 0.2s;
+        }
+        .game-card:active { transform: scale(0.98); background: #252525; }
+        .game-info h3 { margin: 0; color: white; font-size: 1.1rem; }
+        .game-info p { margin: 5px 0 0; color: var(--text-dim); font-size: 0.8rem; }
+        .play-btn { background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 8px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+
+        /* Active Game Board */
+        #active-game-container { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        .tictac-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 300px; aspect-ratio: 1; }
+        .cell { background: #222; border-radius: 10px; border: none; font-size: 2.5rem; font-weight: 800; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; }
+        .cell.X { color: var(--primary); text-shadow: 0 0 10px rgba(0,242,234,0.4); }
+        .cell.O { color: var(--secondary); text-shadow: 0 0 10px rgba(255,0,85,0.4); }
+        .game-status { margin-bottom: 20px; font-size: 1.2rem; font-weight: 600; color: var(--primary); letter-spacing: 1px; }
+        .btn-close-game { margin-top: 20px; background: #333; color: #fff; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; }
+
+        /* --- BOTTOM NAV --- */
+        .bottom-nav { 
+            height: 60px; background: var(--surface); border-top: 1px solid #333; 
+            display: flex; justify-content: space-around; align-items: center; 
+        }
+        .nav-item { 
+            flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            color: #666; font-size: 0.7rem; gap: 4px; cursor: pointer; transition: 0.2s;
+        }
+        .nav-item.active { color: var(--primary); }
+        .nav-icon { font-size: 1.4rem; font-weight: bold; }
+
     </style>
 </head>
 <body>
 
-    <div id="choice-overlay" class="game-overlay">
-        <div class="choice-box">
-            <h2 style="margin-top:0; color:white;">Choose Side</h2>
-            <button class="choice-btn" style="color:var(--primary)" onclick="startGameAs('X')">X</button>
-            <button class="choice-btn" style="color:var(--secondary)" onclick="startGameAs('O')">O</button>
-        </div>
-    </div>
-
     <div id="login-screen">
         <div class="login-box">
-            <h1 style="color:white; font-weight:300; letter-spacing:4px;">ETHEREAL</h1>
-            <input type="text" id="username-field" class="login-input" placeholder="Enter Name">
-            <button class="btn-glow" onclick="enterApp()">START</button>
+            <h1 style="color:white; font-weight:300; letter-spacing:4px; margin-bottom:10px;">ETHEREAL</h1>
+            <input type="text" id="username-field" class="login-input" placeholder="Enter Nickname">
+            <button class="btn-glow" onclick="enterApp()">START ENGINE</button>
         </div>
     </div>
 
     <header>
         <div class="brand">ETHEREAL</div>
-        <div class="id-display" onclick="copyId()">
+        <div class="id-badge" onclick="copyId()">
             <div id="status-dot" class="dot"></div>
-            <span id="header-status">Offline</span>
+            <span id="id-text">Offline</span>
         </div>
     </header>
 
-    <div class="conn-bar">
-        <input id="remote-id" class="conn-input" placeholder="Friend's ID">
-        <button class="btn-join" onclick="connectManual()">JOIN</button>
+    <div id="main-content">
+        
+        <div id="view-chat">
+            <div class="conn-bar">
+                <input id="remote-id" class="conn-input" placeholder="Paste Friend's ID">
+                <button class="btn-join" onclick="connectManual()">JOIN</button>
+            </div>
+            <div id="chat-feed">
+                <div class="sys-msg">Welcome to Ethereal. Connect to start.</div>
+            </div>
+            <div class="chat-input-area">
+                <input id="msg-input" type="text" placeholder="Type message..." disabled>
+                <button id="send-btn" onclick="sendMessage()" disabled>→</button>
+            </div>
+        </div>
+
+        <div id="view-games">
+            
+            <div id="game-hub" class="game-list">
+                <div class="game-card">
+                    <div class="game-info">
+                        <h3>Tic Tac Toe</h3>
+                        <p>Classic X vs O battle.</p>
+                    </div>
+                    <button class="play-btn" onclick="inviteGame('tictactoe')">PLAY</button>
+                </div>
+                
+                <div class="game-card" style="opacity:0.5; cursor:not-allowed;">
+                    <div class="game-info">
+                        <h3>Rock Paper Scissors</h3>
+                        <p>Coming Soon</p>
+                    </div>
+                    <button class="play-btn" style="border-color:#555; color:#555;">LOCKED</button>
+                </div>
+            </div>
+
+            <div id="active-game-container">
+                <div id="game-status-text" class="game-status">Waiting...</div>
+                <div class="tictac-grid" id="ttt-grid">
+                    <button class="cell" onclick="move(0)"></button>
+                    <button class="cell" onclick="move(1)"></button>
+                    <button class="cell" onclick="move(2)"></button>
+                    <button class="cell" onclick="move(3)"></button>
+                    <button class="cell" onclick="move(4)"></button>
+                    <button class="cell" onclick="move(5)"></button>
+                    <button class="cell" onclick="move(6)"></button>
+                    <button class="cell" onclick="move(7)"></button>
+                    <button class="cell" onclick="move(8)"></button>
+                </div>
+                <button class="btn-close-game" onclick="quitGame()">Quit Game</button>
+            </div>
+
+        </div>
+
     </div>
 
-    <div id="chat-feed">
-        <div class="sys-msg">Waiting for connection...</div>
-    </div>
-
-    <footer>
-        <input id="msg-input" type="text" placeholder="Type message..." disabled>
-        <button id="send-btn" onclick="handleSend()" disabled>→</button>
-    </footer>
+    <nav class="bottom-nav">
+        <div class="nav-item active" id="nav-chat" onclick="switchTab('chat')">
+            <span class="nav-icon">💬</span>
+            <span>CHAT</span>
+        </div>
+        <div class="nav-item" id="nav-games" onclick="switchTab('games')">
+            <span class="nav-icon">🎮</span>
+            <span>ARCADE</span>
+        </div>
+    </nav>
 
     <script>
-        // --- STATE ---
+        // --- DATA ---
         let me = { name: "User", id: null };
         let peer = null;
         let conn = null;
-        let activeGame = null; // { id, board, turn, mySymbol }
+        let activeGame = null; // { symbol: 'X'|'O', turn: bool, board: [] }
 
         // --- DOM ---
         const ui = {
             login: document.getElementById('login-screen'),
             userField: document.getElementById('username-field'),
-            statusDot: document.getElementById('status-dot'),
-            statusText: document.getElementById('header-status'),
-            chat: document.getElementById('chat-feed'),
+            idText: document.getElementById('id-text'),
+            dot: document.getElementById('status-dot'),
+            chatView: document.getElementById('view-chat'),
+            gameView: document.getElementById('view-games'),
+            chatFeed: document.getElementById('chat-feed'),
+            gameHub: document.getElementById('game-hub'),
+            gameBoard: document.getElementById('active-game-container'),
+            gameStatus: document.getElementById('game-status-text'),
+            tttCells: document.querySelectorAll('.cell'),
             input: document.getElementById('msg-input'),
-            send: document.getElementById('send-btn'),
-            choiceOverlay: document.getElementById('choice-overlay')
+            send: document.getElementById('send-btn')
         };
 
-        // 1. APP START
+        // --- 1. CORE & NAV ---
         function enterApp() {
             const name = ui.userField.value.trim();
             if(!name) return;
@@ -137,149 +210,178 @@
             initPeer();
         }
 
+        function switchTab(tab) {
+            // Update Nav UI
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`nav-${tab}`).classList.add('active');
+
+            // Update View UI
+            if(tab === 'chat') {
+                ui.chatView.style.display = 'flex';
+                ui.gameView.style.display = 'none';
+            } else {
+                ui.chatView.style.display = 'none';
+                ui.gameView.style.display = 'flex';
+            }
+        }
+
+        // --- 2. P2P NETWORKING ---
         function initPeer() {
             peer = new Peer();
-            peer.on('open', (id) => {
+            peer.on('open', id => {
                 me.id = id;
-                ui.statusDot.classList.add('online');
-                ui.statusText.innerText = "Copy ID";
-                addSystem("ID Generated. Share it!");
+                ui.dot.classList.add('online');
+                ui.idText.innerText = "Copy ID";
+                addSystemMsg("System Ready. Share ID to connect.");
             });
-            peer.on('connection', (c) => handleConn(c));
+            peer.on('connection', c => handleConn(c));
         }
 
         function connectManual() {
             const id = document.getElementById('remote-id').value.trim();
             if(!id) return;
+            addSystemMsg("Connecting...");
             handleConn(peer.connect(id));
         }
 
         function handleConn(connection) {
             if(conn) conn.close();
             conn = connection;
+
             conn.on('open', () => {
                 ui.input.disabled = false;
                 ui.send.disabled = false;
-                addSystem("Connected!");
+                addSystemMsg("Connected securely!");
                 conn.send({ type: 'handshake', name: me.name });
             });
-            conn.on('data', (data) => handleData(data));
+
+            conn.on('data', data => handleData(data));
             conn.on('close', () => {
-                addSystem("Disconnected.");
+                addSystemMsg("Disconnected.");
                 ui.input.disabled = true;
+                ui.dot.classList.remove('online');
                 conn = null;
+                quitGame(true); // Force quit game if net lost
             });
         }
 
-        // 2. MESSAGING & TRIGGER
-        function handleSend() {
-            const text = ui.input.value.trim();
-            if(!text) return;
-
-            // SECRET TRIGGER
-            if(text.toLowerCase() === 'ethereal') {
-                ui.choiceOverlay.style.display = 'flex'; // Open Choice UI
-                ui.input.value = "";
-                return;
+        // --- 3. DATA HANDLER ---
+        function handleData(data) {
+            switch(data.type) {
+                case 'handshake': addSystemMsg(`Connected to ${data.name}`); break;
+                case 'chat': addMsg(data.text, 'theirs'); break;
+                
+                // GAME EVENTS
+                case 'game-invite':
+                    if(confirm(`${data.from} challenged you to Tic Tac Toe!`)) {
+                        acceptGame();
+                    }
+                    break;
+                case 'game-accept':
+                    startTicTacToe('X'); // Inviter is X
+                    break;
+                case 'game-move':
+                    handleRemoteMove(data.index);
+                    break;
+                case 'game-quit':
+                    quitGame(true);
+                    alert("Opponent left the game.");
+                    break;
             }
+        }
 
-            // Normal Message
-            conn.send({ type: 'chat', text: text });
-            addMsg(text, 'mine');
+        // --- 4. CHAT FUNCTIONS ---
+        function sendMessage() {
+            const txt = ui.input.value.trim();
+            if(!txt || !conn) return;
+            conn.send({ type: 'chat', text: txt });
+            addMsg(txt, 'mine');
             ui.input.value = "";
         }
 
-        function handleData(data) {
-            if(data.type === 'chat') addMsg(data.text, 'theirs');
-            if(data.type === 'handshake') addSystem(`Connected to ${data.name}`);
-            
-            // GAME LOGIC HANDLERS
-            if(data.type === 'game-start') initGameUI(data.gameId, data.starterSymbol === 'X' ? 'O' : 'X', false);
-            if(data.type === 'game-move') handleRemoteMove(data.index, data.symbol);
-        }
-
-        // 3. GAME LOGIC
-        function startGameAs(symbol) {
-            ui.choiceOverlay.style.display = 'none';
-            const gameId = Date.now();
-            
-            // Initialize my game state
-            initGameUI(gameId, symbol, true);
-            
-            // Tell friend to start game
-            conn.send({ type: 'game-start', gameId: gameId, starterSymbol: symbol });
-        }
-
-        function initGameUI(gameId, mySymbol, isMyTurn) {
-            // Create Game Object
-            activeGame = {
-                id: gameId,
-                board: [null,null,null,null,null,null,null,null,null],
-                mySymbol: mySymbol,
-                isMyTurn: isMyTurn, // If I picked, I go first (usually X, but logic allows custom)
-                element: null
-            };
-            
-            // Note: In TicTacToe X usually goes first. 
-            // If I picked X, isMyTurn = true. If I picked O, isMyTurn = false.
-            if(mySymbol === 'O') activeGame.isMyTurn = false;
-            else activeGame.isMyTurn = true;
-
-            renderGameBoard();
-        }
-
-        function renderGameBoard() {
+        function addMsg(txt, type) {
             const div = document.createElement('div');
-            div.className = 'game-container';
-            div.innerHTML = `
-                <div class="game-header">ETHEREAL MATCH</div>
-                <div class="game-grid" id="grid-${activeGame.id}">
-                    ${[0,1,2,3,4,5,6,7,8].map(i => `<button class="cell" onclick="makeMove(${i})"></button>`).join('')}
-                </div>
-                <div class="game-header" id="status-${activeGame.id}" style="margin-top:10px; color:${activeGame.isMyTurn ? 'var(--primary)' : '#555'}">
-                    ${activeGame.isMyTurn ? "YOUR TURN" : "OPPONENT'S TURN"}
-                </div>
-            `;
-            
-            // Add to chat
-            ui.chat.appendChild(div);
-            ui.chat.scrollTop = ui.chat.scrollHeight;
-            activeGame.element = div;
+            div.className = `msg ${type}`;
+            div.innerText = txt;
+            ui.chatFeed.appendChild(div);
+            ui.chatFeed.scrollTop = ui.chatFeed.scrollHeight;
         }
 
-        function makeMove(index) {
-            if(!activeGame || !activeGame.isMyTurn || activeGame.board[index]) return;
+        function addSystemMsg(txt) {
+            const div = document.createElement('div');
+            div.className = 'sys-msg';
+            div.innerText = txt;
+            ui.chatFeed.appendChild(div);
+        }
 
-            // Update Local
-            updateCell(index, activeGame.mySymbol);
-            activeGame.isMyTurn = false;
-            updateStatus("OPPONENT'S TURN");
+        // --- 5. GAME LOGIC (TIC TAC TOE) ---
+        function inviteGame(gameName) {
+            if(!conn) return alert("Connect to a friend first!");
+            conn.send({ type: 'game-invite', from: me.name });
+            addSystemMsg("Game invitation sent...");
+        }
 
-            // Send to Peer
-            conn.send({ type: 'game-move', index: index, symbol: activeGame.mySymbol });
+        function acceptGame() {
+            switchTab('games');
+            startTicTacToe('O'); // Acceptor is O
+            conn.send({ type: 'game-accept' });
+        }
+
+        function startTicTacToe(symbol) {
+            activeGame = {
+                symbol: symbol,
+                board: Array(9).fill(null),
+                myTurn: symbol === 'X' // X starts
+            };
+
+            // Switch UI
+            ui.gameHub.classList.add('hidden');
+            ui.gameBoard.style.display = 'flex';
             
+            // Reset Board
+            ui.tttCells.forEach(c => { c.innerText = ""; c.className = "cell"; });
+            updateGameStatus();
+        }
+
+        function updateGameStatus() {
+            if(activeGame.myTurn) {
+                ui.gameStatus.innerText = "YOUR TURN";
+                ui.gameStatus.style.color = "var(--primary)";
+            } else {
+                ui.gameStatus.innerText = "THEIR TURN";
+                ui.gameStatus.style.color = "#666";
+            }
+        }
+
+        function move(index) {
+            if(!activeGame || !activeGame.myTurn || activeGame.board[index]) return;
+
+            // Make Move
+            activeGame.board[index] = activeGame.symbol;
+            renderCell(index, activeGame.symbol);
+            activeGame.myTurn = false;
+            updateGameStatus();
+
+            // Send
+            conn.send({ type: 'game-move', index: index });
             checkWin();
         }
 
-        function handleRemoteMove(index, symbol) {
-            if(!activeGame) return; // Should sync, but simple check
-            updateCell(index, symbol);
-            activeGame.isMyTurn = true;
-            updateStatus("YOUR TURN");
+        function handleRemoteMove(index) {
+            if(!activeGame) return;
+            const oppSymbol = activeGame.symbol === 'X' ? 'O' : 'X';
+            
+            activeGame.board[index] = oppSymbol;
+            renderCell(index, oppSymbol);
+            activeGame.myTurn = true;
+            updateGameStatus();
             checkWin();
         }
 
-        function updateCell(index, symbol) {
-            activeGame.board[index] = symbol;
-            const btn = document.getElementById(`grid-${activeGame.id}`).children[index];
-            btn.innerText = symbol;
-            btn.classList.add(symbol.toLowerCase());
-        }
-
-        function updateStatus(text) {
-            const el = document.getElementById(`status-${activeGame.id}`);
-            el.innerText = text;
-            el.style.color = text.includes("YOUR") ? "var(--primary)" : "#555";
+        function renderCell(index, symbol) {
+            const cell = ui.tttCells[index];
+            cell.innerText = symbol;
+            cell.classList.add(symbol);
         }
 
         function checkWin() {
@@ -288,35 +390,27 @@
             
             for(let w of wins) {
                 if(b[w[0]] && b[w[0]] === b[w[1]] && b[w[0]] === b[w[2]]) {
-                    endGame(b[w[0]] === activeGame.mySymbol ? "VICTORY" : "DEFEAT");
+                    const winner = b[w[0]];
+                    setTimeout(() => {
+                        alert(winner === activeGame.symbol ? "VICTORY!" : "DEFEAT!");
+                        quitGame();
+                    }, 100);
                     return;
                 }
             }
-            if(!b.includes(null)) endGame("DRAW");
+            if(!b.includes(null)) {
+                setTimeout(() => { alert("DRAW GAME!"); quitGame(); }, 100);
+            }
         }
 
-        function endGame(result) {
-            updateStatus(result);
-            activeGame = null; // Disable logic
+        function quitGame(silent = false) {
+            ui.gameBoard.style.display = 'none';
+            ui.gameHub.classList.remove('hidden');
+            activeGame = null;
+            if(!silent && conn) conn.send({ type: 'game-quit' });
         }
 
-        // --- UI HELPERS ---
-        function addMsg(text, type) {
-            const div = document.createElement('div');
-            div.className = `msg ${type}`;
-            div.innerText = text;
-            ui.chat.appendChild(div);
-            ui.chat.scrollTop = ui.chat.scrollHeight;
-        }
-        
-        function addSystem(text) {
-            const div = document.createElement('div');
-            div.className = 'sys-msg';
-            div.innerText = text;
-            ui.chat.appendChild(div);
-            ui.chat.scrollTop = ui.chat.scrollHeight;
-        }
-
+        // --- UTILS ---
         function copyId() {
             if(me.id) navigator.clipboard.writeText(me.id).then(() => alert("ID Copied"));
         }
